@@ -1,86 +1,46 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { getColmeiaById, updateColmeia } from "../../services/api";
 import { useRouter } from "next/router";
-import {
-  Container,
-  TextField,
-  Button,
-  Typography,
-  CircularProgress,
-  Alert,
-} from "@mui/material";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { getColmeias, updateColmeia } from "../../services/api";
+import { Container, TextField, Button, Typography } from "@mui/material";
 
 export default function EditarColmeia() {
   const router = useRouter();
   const { id } = router.query;
-  const [form, setForm] = useState({ nome: "", localizacao: "", temperatura: "", umidade: "" });
-  
-  // Buscar dados da colmeia pelo ID
-  const { data: colmeia, isLoading, isError } = useQuery({
-    queryKey: ['colmeia', id],
-    queryFn: () => getColmeiaById(id),
-    enabled: !!id, // Só executa a query quando o ID estiver disponível
-    onSuccess: (data) => {
-      // Preencher o formulário com os dados recebidos
+  const { data: colmeias } = useQuery({
+    queryKey: ["colmeias"],  // chave de cache
+    queryFn: getColmeias,    // função que retorna os dados
+  });
+  const colmeia = colmeias?.find((c) => c.id === id);
+
+  const [form, setForm] = useState({
+    nome: "",
+    localizacao: "",
+    temperatura: "",
+    umidade: "",
+  });
+
+  useEffect(() => {
+    if (colmeia) {
       setForm({
-        nome: data.nome || "",
-        localizacao: data.localizacao || "",
-        temperatura: data.temperatura?.toString() || "",
-        umidade: data.umidade?.toString() || ""
+        nome: colmeia.nome,
+        localizacao: colmeia.localizacao,
+        temperatura: colmeia.temperatura || "",
+        umidade: colmeia.umidade || "",
       });
     }
-  });
-  
-  // Mutation para atualizar a colmeia
+  }, [colmeia]);
+
   const mutation = useMutation({
-    mutationFn: (dados) => updateColmeia(id, dados),
-    onSuccess: () => {
-      console.log("Colmeia atualizada com sucesso!");
-      router.push("/");
-    },
-    onError: (error) => {
-      console.error("Erro ao atualizar colmeia:", error);
-    },
+    mutationFn: (data) => updateColmeia(id, data),
+    onSuccess: () => router.push("/"),
   });
-  
-  const handleSubmit = () => {
-    // Convertendo os campos numéricos para Float antes de enviar
-    const dadosProcessados = {
-      nome: form.nome,
-      localizacao: form.localizacao,
-      temperatura: form.temperatura ? parseFloat(form.temperatura) : null,
-      umidade: form.umidade ? parseFloat(form.umidade) : null
-    };
-    
-    console.log("Dados processados para atualização:", dadosProcessados);
-    mutation.mutate(dadosProcessados);
+
+  const handleFloatChange = (e, field) => {
+    const value = parseFloat(e.target.value);
+    setForm({ ...form, [field]: isNaN(value) ? "" : value });
   };
-  
-  if (isLoading) {
-    return (
-      <Container maxWidth="sm" sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
-      </Container>
-    );
-  }
-  
-  if (isError || !colmeia) {
-    return (
-      <Container maxWidth="sm" sx={{ mt: 4 }}>
-        <Alert severity="error">Erro ao carregar dados da colmeia. Verifique se o ID está correto.</Alert>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          sx={{ mt: 2 }}
-          onClick={() => router.push("/")}
-        >
-          Voltar
-        </Button>
-      </Container>
-    );
-  }
-  
+
   return (
     <Container maxWidth="sm">
       <Typography variant="h5" gutterBottom>Editar Colmeia</Typography>
@@ -100,37 +60,27 @@ export default function EditarColmeia() {
       />
       <TextField
         label="Temperatura"
-        type="number"
         fullWidth
         margin="normal"
+        type="number"
         value={form.temperatura}
-        onChange={(e) => setForm({ ...form, temperatura: e.target.value })}
+        onChange={(e) => handleFloatChange(e, "temperatura")}
       />
       <TextField
         label="Umidade"
-        type="number"
         fullWidth
         margin="normal"
+        type="number"
         value={form.umidade}
-        onChange={(e) => setForm({ ...form, umidade: e.target.value })}
+        onChange={(e) => handleFloatChange(e, "umidade")}
       />
       <Button
         variant="contained"
         color="primary"
         fullWidth
-        onClick={handleSubmit}
-        disabled={mutation.isLoading}
-        sx={{ mt: 2 }}
+        onClick={() => mutation.mutate(form)}
       >
-        {mutation.isLoading ? "Salvando..." : "Salvar Alterações"}
-      </Button>
-      <Button
-        variant="outlined"
-        fullWidth
-        onClick={() => router.push("/")}
-        sx={{ mt: 2 }}
-      >
-        Cancelar
+        Atualizar
       </Button>
     </Container>
   );
